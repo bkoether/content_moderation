@@ -1,7 +1,9 @@
 ; $Id$
 project = "content_moderation_workflow_ui"
 core = 7.x
+version = 7.x-1.x-dev
+php = 5.2
 name = Content Moderation Workflow UI
-description = Content Moderation
+description = UI to create custom content moderation workflows.
 package = "Drupal Wiki"
 files[] = content_moderation_workflow_ui.module

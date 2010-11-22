@@ -334,28 +334,29 @@ function content_moderation_node_delete($node) {
  * Provides permissions for each state to state change
  */
 function content_moderation_permission() {
-  static $rights = FALSE;
-
-  if (! $rights) {
+  // static $rights = FALSE;
+  // if (! $rights) {
     // This user right is later used for granting the user the approval of pending version
     // making those version "live".
-    $states = _content_moderation_states();
+    $states = content_moderation_states_get();
+    // dprint_r($states);
     $types = _content_moderation_moderate_node_types();
+    // dprint_r($types);
     $rights = array();
     foreach ($types as $type) {
       foreach ($states as $from_state) {
-        $to_states = _content_moderation_next_states($from_state, $type);
+        $to_states = content_moderation_states_next($from_state, FALSE, $type);
         // values are translated
         $to_states = array_keys($to_states);
         foreach ($to_states as $to_state) {
           $rights["moderate $type state $from_state to $to_state"] = array(
-            'title' => t('Moderate from state !type to !to_state', array('!type' => $from_state, '!to_state' => $to_state)),
+            'title' => t('Moderate !type from state !from_state to !to_state', array('!type' => $type, '!from_state' => $from_state, '!to_state' => $to_state)),
           );
         }
       }
       $rights["view $type moderation history"] = array(
         'title' => t('View !type moderation history', array('!type' => $type)),
-        'description' => t('See the complete moderation history of !type content type')
+        'description' => t('See the complete moderation history of !type content type', array('!type' => $type))
       );
 
     }
@@ -375,7 +376,8 @@ function content_moderation_permission() {
     $rights['unpublish live version'] = array(
       'title' => t('Unpublish the current live version')
     );
-  }
+    return $rights;
+  // }
 }
 
 
@@ -459,6 +461,12 @@ function content_moderation_form_alter(&$form, $form_state, $form_id) {
       '#type' => 'value',
       '#value' => $moderation_state
     );
+    
+    // As this revision information is moved in the options tab we have to make it visible even for users
+    // that don't have the 'administer nodes' privilege. We add those though to the promote and sticky checkboxes.
+    $form['options']['#access'] = TRUE;
+    $form['options']['promote']['#access'] = user_access('administer nodes');
+    $form['options']['sticky']['#access'] = user_access('administer nodes');    
   }
 
   // Move the Revision log under publishing to make things pretty
@@ -470,7 +478,7 @@ function content_moderation_form_alter(&$form, $form_state, $form_id) {
   $form['revision_information']['revision']['#default_value'] = TRUE;
   // Do not allow users to change the revision status
   $form['revision_information']['#access'] = FALSE;
-
+  
   // User has no ability to choose if this content is published or not. If the
   // moderation status is live, then it will be published, otherwise not.
   $form['options']['status']['#access'] = FALSE;
@@ -599,7 +607,7 @@ function _content_moderation_moderate_node_types() {
  * checking the transition and node type.
  */
 function _content_moderation_state_allowed($user, $from_state, $to_state, $node_type) {
-  return user_access("content moderation $node_type state $from_state to $to_state");
+  return user_access("moderate $node_type state $from_state to $to_state", $user);
 }
 
 /**
@@ -832,6 +840,7 @@ function content_moderation_states_next($current_state = FALSE, $account = FALSE
     foreach ($states as $state_name => $value) {
       if (!_content_moderation_state_allowed($account, $current_state, $state_name, $node_type)) {
         unset($states[$state_name]);
+        print_r($states);
       }
     }
   }
@@ -839,7 +848,7 @@ function content_moderation_states_next($current_state = FALSE, $account = FALSE
   if ($states) {
     return $states;
   }
-  return FALSE;
+  return array();
 }
 
 
